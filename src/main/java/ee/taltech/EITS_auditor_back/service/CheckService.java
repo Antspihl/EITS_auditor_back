@@ -1,17 +1,13 @@
 package ee.taltech.EITS_auditor_back.service;
 
-import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
-import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-
-
+import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
+import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.List;
@@ -19,11 +15,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class CheckService {
 
     private final OSQueryService OSQuery;
     private final ObjectMapper objectMapper;
+
+    public CheckService(OSQueryService osQuery, ObjectMapper objectMapper) throws IOException {
+        this.OSQuery = osQuery;
+        this.objectMapper = objectMapper;
+        if (!isWindows11()) {
+            throw new UnsupportedOperationException("This service is only supported on Windows 11");
+        }
+    }
+
+    private boolean isWindows11() throws IOException {
+        String response = OSQuery.executeOSQueryCommand(
+                "SELECT name FROM os_version"
+        );
+        return response.contains("Microsoft") && response.contains("Windows") && response.contains("11");
+    }
 
     /*
      * Corresponds to E-ITS SYS.2.2.3.M5
