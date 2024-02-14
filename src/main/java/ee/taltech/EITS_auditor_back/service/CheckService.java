@@ -3,6 +3,7 @@ package ee.taltech.EITS_auditor_back.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
+import ee.taltech.EITS_auditor_back.dto.osquery.RegistryDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
@@ -73,16 +74,46 @@ public class CheckService {
     /*
         * Corresponds to E-ITS SYS.2.1.M1
         * https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/
-        * TODO: Implement the check for screen saver automatic enabling and it's password protection
      */
     public Sys21M1DTO getSecureAuthenticationOfUsers() throws IOException {
-        String response = OSQuery.executeOSQueryCommand(
+        boolean screenSaverIsEnabled = false;
+        boolean screenSaverPasswordProtected = false;
+        boolean needAuthToChangePassword;
+        boolean autoLoginDisabled;
+        boolean baseObjectsAreAudited;
+
+        String passwordChangingResponse = OSQuery.executeOSQueryCommand(
                 "SELECT logon_to_change_password FROM security_profile_info"
         );
-        List<AuthDTO> securityProducts = objectMapper.readValue(response, new TypeReference<>() {
+        String screenSaverResponse = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = 'HKEY_CURRENT_USER\\Control Panel\\Desktop' AND name LIKE '%ScreenSave%'"
+        );
+        String autoLoginResponse = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' AND name == 'AutoAdminLogin'"
+        );
+        String auditResponse = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Lsa' AND name == 'auditbaseobjects'"
+        );
+
+        List<AuthDTO> securityProducts = objectMapper.readValue(passwordChangingResponse, new TypeReference<>() {
         });
         AuthDTO securityProduct = securityProducts.get(0);
+        List<RegistryDTO> screenSaver = objectMapper.readValue(screenSaverResponse, new TypeReference<>() {
+        });
+        List<RegistryDTO> audit = objectMapper.readValue(auditResponse, new TypeReference<>() {
+        });
 
-        return new Sys21M1DTO(securityProduct.logon_to_change_password() == 1);
+        needAuthToChangePassword = securityProduct.logon_to_change_password() == 1;
+        for (RegistryDTO registryDTO : screenSaver) {
+            if (registryDTO.name().equalsIgnoreCase("ScreenSaveActive")) {
+                screenSaverIsEnabled = registryDTO.data().equalsIgnoreCase("1");
+            } else if (registryDTO.name().equalsIgnoreCase("ScreenSaverIsSecure")) {
+                screenSaverPasswordProtected = registryDTO.data().equalsIgnoreCase("1");
+            }
+        }
+        autoLoginDisabled = autoLoginResponse.equalsIgnoreCase("[]");
+        baseObjectsAreAudited = audit.get(0).data().equalsIgnoreCase("1");
+
+        return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, needAuthToChangePassword, autoLoginDisabled, baseObjectsAreAudited);
     }
 }

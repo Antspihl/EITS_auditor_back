@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.io.IOException;
 
 @RestController
@@ -17,12 +18,12 @@ import java.io.IOException;
 public class CheckController {
     private final CheckService checkService;
 
-    @GetMapping("/SYS.2.2.3.M5")
+    @GetMapping("/SYS223M5")
     public Sys223M5DTO checkWindowsDefenderStatus() throws IOException {
         return checkService.getWindowsDefenderStatus();
     }
 
-    @GetMapping("/SYS.2.1.M1")
+    @GetMapping("/SYS21M1")
     public Sys21M1DTO checkSecureAuthenticationOfUsers() throws IOException {
         return checkService.getSecureAuthenticationOfUsers();
     }
