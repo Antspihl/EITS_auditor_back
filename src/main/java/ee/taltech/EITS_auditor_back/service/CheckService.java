@@ -6,6 +6,7 @@ import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.RegistryDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys21M3DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.prefs.Preferences;
 
 @Service
 @Slf4j
@@ -36,10 +38,10 @@ public class CheckService {
         return response.contains("Microsoft") && response.contains("Windows") && response.contains("11");
     }
 
-    /*
-     * Corresponds to E-ITS SYS.2.2.3.M5
-     * https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m5-windows-klientarvuti-kahjurvara-toorje/
-     */
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m5-windows-klientarvuti-kahjurvara-toorje/">E-ITS SYS.2.2.3.M5</a>
+     **/
     public Sys223M5DTO getWindowsDefenderStatus() throws IOException {
         String response = OSQuery.executeOSQueryCommand(
                 "SELECT type, name, state, signatures_up_to_date AS up_to_date FROM windows_security_products"
@@ -71,10 +73,10 @@ public class CheckService {
         return new Sys223M5DTO(firewallEnabled.get(), antivirusEnabled.get(), firewallUpToDate.get(), antivirusUpToDate.get());
     }
 
-    /*
-        * Corresponds to E-ITS SYS.2.1.M1
-        * https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/
-     */
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/">E-ITS SYS.2.1.M1</a>
+     **/
     public Sys21M1DTO getSecureAuthenticationOfUsers() throws IOException {
         boolean screenSaverIsEnabled = false;
         boolean screenSaverPasswordProtected = false;
@@ -115,5 +117,102 @@ public class CheckService {
         baseObjectsAreAudited = audit.get(0).data().equalsIgnoreCase("1");
 
         return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, needAuthToChangePassword, autoLoginDisabled, baseObjectsAreAudited);
+    }
+
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m3-uuendite-automaatpaigaldus/">E-ITS SYS.2.1.M3</a>
+     **/
+    public Sys21M3DTO getAutomaticUpdating() {
+        boolean automaticUpdatingEnabled = areAutomaticUpdatesEnabled();
+        boolean checkForUpdatesDailyEnabled = areUpdatesCheckedDaily();
+        boolean controlUpdateServerAuthenticity = isUpdateServerAuthenticityControlled();
+        boolean checkUpdatePackagesIntegrity = isUpdatePackagesIntegrityChecked();
+        boolean usesWSUS = isWSUSUsed();
+        boolean previousStateIsRestorable = isPreviousStateRestorable();
+
+        return new Sys21M3DTO(automaticUpdatingEnabled, checkForUpdatesDailyEnabled, controlUpdateServerAuthenticity, checkUpdatePackagesIntegrity, usesWSUS, previousStateIsRestorable);
+    }
+
+    public static boolean areAutomaticUpdatesEnabled() {
+        String windowsUpdateKeyPath = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update";
+        String groupPolicyValueName = "UseWUServer";
+        List<Integer> allowedStates = List.of(2, 3, 4);
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(windowsUpdateKeyPath);
+            int auOptions = prefs.getInt("AUOptions", -1);
+            boolean isGroupPolicySet = prefs.nodeExists(groupPolicyValueName);
+
+            return allowedStates.contains(auOptions) && !isGroupPolicySet;
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if automatic updates are enabled", e);
+            return false;
+        }
+    }
+
+    public static boolean areUpdatesCheckedDaily() {
+        String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update";
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(registryPath);
+
+            return prefs.getBoolean("AUOptions", false);
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if updates are checked daily", e);
+            return false;
+        }
+    }
+
+    public static boolean isUpdateServerAuthenticityControlled() {
+        String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer";
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(registryPath);
+
+            return prefs.getBoolean("ValidateAdminCodeSignatures", false);
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if update server authenticity is controlled", e);
+            return false;
+        }
+    }
+
+    public static boolean isUpdatePackagesIntegrityChecked() {
+        String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(registryPath);
+
+            return prefs.getBoolean("HideFastSwitchNotification", false);
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if update packages integrity is checked", e);
+            return false;
+        }
+    }
+
+    public static boolean isWSUSUsed() {
+        String registryPath = "SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate";
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(registryPath);
+
+            return prefs.getBoolean("WUServer", false);
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if WSUS is used", e);
+            return false;
+        }
+    }
+
+    public static boolean isPreviousStateRestorable() {
+        String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
+
+        try {
+            Preferences prefs = Preferences.systemRoot().node(registryPath);
+
+            return prefs.getBoolean("DisableAutomaticRestartSignOn", false);
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if previous state is restorable", e);
+            return false;
+        }
     }
 }
