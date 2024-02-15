@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.RegistryDTO;
+import ee.taltech.EITS_auditor_back.dto.osquery.SecureBootDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys21M8DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,9 +38,9 @@ public class CheckService {
         return response.contains("Microsoft") && response.contains("Windows") && response.contains("11");
     }
 
-    /*
-     * Corresponds to E-ITS SYS.2.2.3.M5
-     * https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m5-windows-klientarvuti-kahjurvara-toorje/
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m5-windows-klientarvuti-kahjurvara-toorje/">E-ITS SYS.2.2.3.M5</a>
      */
     public Sys223M5DTO getWindowsDefenderStatus() throws IOException {
         String response = OSQuery.executeOSQueryCommand(
@@ -71,9 +73,9 @@ public class CheckService {
         return new Sys223M5DTO(firewallEnabled.get(), antivirusEnabled.get(), firewallUpToDate.get(), antivirusUpToDate.get());
     }
 
-    /*
-        * Corresponds to E-ITS SYS.2.1.M1
-        * https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/">E-ITS SYS.2.1.M1</a>
      */
     public Sys21M1DTO getSecureAuthenticationOfUsers() throws IOException {
         boolean screenSaverIsEnabled = false;
@@ -115,5 +117,35 @@ public class CheckService {
         baseObjectsAreAudited = audit.get(0).data().equalsIgnoreCase("1");
 
         return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, needAuthToChangePassword, autoLoginDisabled, baseObjectsAreAudited);
+    }
+
+    public Sys21M8DTO getBootUpSecurity() throws IOException {
+        boolean secureBootEnabled = false;
+        boolean secureBootSetupModeDisabled = false;
+        boolean autoStartFromExternalDrivesDisabled = false;
+        // boolean onlyAdminsCanChangeBootSettings = false;
+
+        String secureBootResponse = OSQuery.executeOSQueryCommand(
+                "SELECT secure_boot, setup_mode FROM secureboot"
+        );
+        String autostartResponse = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' AND name == 'NoDriveTypeAutoRun'"
+        );
+
+        List<SecureBootDTO> secureBoot = objectMapper.readValue(secureBootResponse, new TypeReference<>() {
+        });
+        List<RegistryDTO> autoStart = objectMapper.readValue(autostartResponse, new TypeReference<>() {
+        });
+
+        if (!secureBoot.isEmpty()) {
+            secureBootEnabled = secureBoot.get(0).secure_boot() == 1;
+            secureBootSetupModeDisabled = secureBoot.get(0).setup_mode() == 0;
+        }
+        for (RegistryDTO registryDTO : autoStart) {
+            // the 4th bit is the flag for disabling auto start from external drives
+            autoStartFromExternalDrivesDisabled = (Integer.parseInt(registryDTO.data()) & 0x10) == 0x10;
+        }
+
+        return new Sys21M8DTO(autoStartFromExternalDrivesDisabled, secureBootEnabled, secureBootSetupModeDisabled);
     }
 }
