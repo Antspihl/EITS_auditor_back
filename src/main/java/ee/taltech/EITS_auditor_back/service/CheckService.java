@@ -4,11 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.RegistryDTO;
-import ee.taltech.EITS_auditor_back.dto.osquery.SecureBootDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M3DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M8DTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys21M6DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,11 +32,61 @@ public class CheckService {
         }
     }
 
+    private List<RegistryDTO> getRegistryValue(String commandEnd) throws IOException {
+        String response = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = " + commandEnd
+        );
+        return objectMapper.readValue(response, new TypeReference<>() {
+        });
+    }
+
     private boolean isWindows11() throws IOException {
         String response = OSQuery.executeOSQueryCommand(
                 "SELECT name FROM os_version"
         );
         return response.contains("Microsoft") && response.contains("Windows") && response.contains("11");
+    }
+
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/">E-ITS SYS.2.1.M1</a>
+     **/
+    public Sys21M1DTO getSecureAuthenticationOfUsers() throws IOException {
+        Sys21M1DTO screenSaverStatusPartialDTO = getScreenSaverStatus();
+        boolean needAuthToChangePassword = getNeedAuthToChangePassword();
+        boolean autoLoginDisabled = getAutoLoginDisabled();
+        boolean baseObjectsAreAudited = areBaseObjectsAudited();
+
+        return new Sys21M1DTO(
+                screenSaverStatusPartialDTO.screenSaverIsEnabled(),
+                screenSaverStatusPartialDTO.screenSaverPasswordProtected(),
+                needAuthToChangePassword,
+                autoLoginDisabled,
+                baseObjectsAreAudited);
+    }
+
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m3-uuendite-automaatpaigaldus/">E-ITS SYS.2.1.M3</a>
+     **/
+    public Sys21M3DTO getAutomaticUpdating() {
+        boolean automaticUpdatingEnabled = areAutomaticUpdatesEnabled();
+        boolean checkForUpdatesDailyEnabled = areUpdatesCheckedDaily();
+        boolean controlUpdateServerAuthenticity = isUpdateServerAuthenticityControlled();
+        boolean checkUpdatePackagesIntegrity = isUpdatePackagesIntegrityChecked();
+        boolean usesWSUS = isWSUSUsed();
+        boolean previousStateIsRestorable = isPreviousStateRestorable();
+
+        return new Sys21M3DTO(automaticUpdatingEnabled, checkForUpdatesDailyEnabled, controlUpdateServerAuthenticity, checkUpdatePackagesIntegrity, usesWSUS, previousStateIsRestorable);
+    }
+
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m6-kahjurvaratoorje-tarkvara/">E-ITS SYS.2.1.M6</a>
+     **/
+    public Sys21M6DTO getAntiMalwareStatus() throws IOException {
+        Sys223M5DTO windowsDefenderStatus = getWindowsDefenderStatus();
+        return new Sys21M6DTO(windowsDefenderStatus.antivirusEnabled(), windowsDefenderStatus.antivirusUpToDate());
     }
 
     /**
@@ -75,68 +124,7 @@ public class CheckService {
         return new Sys223M5DTO(firewallEnabled.get(), antivirusEnabled.get(), firewallUpToDate.get(), antivirusUpToDate.get());
     }
 
-    /**
-     * Corresponds to
-     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m1-kasutajate-turvaline-autentimine-kasutaja/">E-ITS SYS.2.1.M1</a>
-     **/
-    public Sys21M1DTO getSecureAuthenticationOfUsers() throws IOException {
-        boolean screenSaverIsEnabled = false;
-        boolean screenSaverPasswordProtected = false;
-        boolean needAuthToChangePassword;
-        boolean autoLoginDisabled;
-        boolean baseObjectsAreAudited;
-
-        String passwordChangingResponse = OSQuery.executeOSQueryCommand(
-                "SELECT logon_to_change_password FROM security_profile_info"
-        );
-        String screenSaverResponse = OSQuery.executeOSQueryCommand(
-                "SELECT name, data FROM registry WHERE key = 'HKEY_CURRENT_USER\\Control Panel\\Desktop' AND name LIKE '%ScreenSave%'"
-        );
-        String autoLoginResponse = OSQuery.executeOSQueryCommand(
-                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' AND name == 'AutoAdminLogin'"
-        );
-        String auditResponse = OSQuery.executeOSQueryCommand(
-                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Lsa' AND name == 'auditbaseobjects'"
-        );
-
-        List<AuthDTO> securityProducts = objectMapper.readValue(passwordChangingResponse, new TypeReference<>() {
-        });
-        AuthDTO securityProduct = securityProducts.get(0);
-        List<RegistryDTO> screenSaver = objectMapper.readValue(screenSaverResponse, new TypeReference<>() {
-        });
-        List<RegistryDTO> audit = objectMapper.readValue(auditResponse, new TypeReference<>() {
-        });
-
-        needAuthToChangePassword = securityProduct.logon_to_change_password() == 1;
-        for (RegistryDTO registryDTO : screenSaver) {
-            if (registryDTO.name().equalsIgnoreCase("ScreenSaveActive")) {
-                screenSaverIsEnabled = registryDTO.data().equalsIgnoreCase("1");
-            } else if (registryDTO.name().equalsIgnoreCase("ScreenSaverIsSecure")) {
-                screenSaverPasswordProtected = registryDTO.data().equalsIgnoreCase("1");
-            }
-        }
-        autoLoginDisabled = autoLoginResponse.equalsIgnoreCase("[]");
-        baseObjectsAreAudited = audit.get(0).data().equalsIgnoreCase("1");
-
-        return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, needAuthToChangePassword, autoLoginDisabled, baseObjectsAreAudited);
-    }
-
-    /**
-     * Corresponds to
-     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys21-klientarvuti-ueldiselt/3-meetmed/32-poohimeetmed/sys21m3-uuendite-automaatpaigaldus/">E-ITS SYS.2.1.M3</a>
-     **/
-    public Sys21M3DTO getAutomaticUpdating() {
-        boolean automaticUpdatingEnabled = areAutomaticUpdatesEnabled();
-        boolean checkForUpdatesDailyEnabled = areUpdatesCheckedDaily();
-        boolean controlUpdateServerAuthenticity = isUpdateServerAuthenticityControlled();
-        boolean checkUpdatePackagesIntegrity = isUpdatePackagesIntegrityChecked();
-        boolean usesWSUS = isWSUSUsed();
-        boolean previousStateIsRestorable = isPreviousStateRestorable();
-
-        return new Sys21M3DTO(automaticUpdatingEnabled, checkForUpdatesDailyEnabled, controlUpdateServerAuthenticity, checkUpdatePackagesIntegrity, usesWSUS, previousStateIsRestorable);
-    }
-
-    public static boolean areAutomaticUpdatesEnabled() {
+    private boolean areAutomaticUpdatesEnabled() {
         String windowsUpdateKeyPath = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update";
         String groupPolicyValueName = "UseWUServer";
         List<Integer> allowedStates = List.of(2, 3, 4);
@@ -153,7 +141,7 @@ public class CheckService {
         }
     }
 
-    public static boolean areUpdatesCheckedDaily() {
+    private boolean areUpdatesCheckedDaily() {
         String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update";
 
         try {
@@ -166,7 +154,7 @@ public class CheckService {
         }
     }
 
-    public static boolean isUpdateServerAuthenticityControlled() {
+    private boolean isUpdateServerAuthenticityControlled() {
         String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer";
 
         try {
@@ -179,7 +167,7 @@ public class CheckService {
         }
     }
 
-    public static boolean isUpdatePackagesIntegrityChecked() {
+    private boolean isUpdatePackagesIntegrityChecked() {
         String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
 
         try {
@@ -192,7 +180,7 @@ public class CheckService {
         }
     }
 
-    public static boolean isWSUSUsed() {
+    private boolean isWSUSUsed() {
         String registryPath = "SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate";
 
         try {
@@ -205,7 +193,7 @@ public class CheckService {
         }
     }
 
-    public static boolean isPreviousStateRestorable() {
+    private boolean isPreviousStateRestorable() {
         String registryPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
 
         try {
@@ -216,5 +204,45 @@ public class CheckService {
             log.debug("Error occurred while checking if previous state is restorable", e);
             return false;
         }
+    }
+
+    private boolean areBaseObjectsAudited() throws IOException {
+        List<RegistryDTO> audit = getRegistryValue("'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Lsa' AND name == 'auditbaseobjects'");
+
+        return audit.get(0).data().equalsIgnoreCase("1");
+    }
+
+    private boolean getAutoLoginDisabled() throws IOException {
+        String autoLoginResponse = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' AND name == 'AutoAdminLogin'"
+        );
+        return autoLoginResponse.equalsIgnoreCase("[]");
+    }
+
+    private boolean getNeedAuthToChangePassword() throws IOException {
+        String passwordChangingResponse = OSQuery.executeOSQueryCommand(
+                "SELECT logon_to_change_password FROM security_profile_info"
+        );
+        List<AuthDTO> securityProducts = objectMapper.readValue(passwordChangingResponse, new TypeReference<>() {
+        });
+        AuthDTO securityProduct = securityProducts.get(0);
+        return securityProduct.logon_to_change_password() == 1;
+    }
+
+    private Sys21M1DTO getScreenSaverStatus() throws IOException {
+        boolean screenSaverIsEnabled = false;
+        boolean screenSaverPasswordProtected = false;
+
+        List<RegistryDTO> screenSaver = getRegistryValue("'HKEY_CURRENT_USER\\Control Panel\\Desktop' AND name LIKE '%ScreenSave%'");
+
+        for (RegistryDTO registryDTO : screenSaver) {
+            if (registryDTO.name().equalsIgnoreCase("ScreenSaveActive")) {
+                screenSaverIsEnabled = registryDTO.data().equalsIgnoreCase("1");
+            } else if (registryDTO.name().equalsIgnoreCase("ScreenSaverIsSecure")) {
+                screenSaverPasswordProtected = registryDTO.data().equalsIgnoreCase("1");
+            }
+        }
+
+        return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, false, false, false);
     }
 }
