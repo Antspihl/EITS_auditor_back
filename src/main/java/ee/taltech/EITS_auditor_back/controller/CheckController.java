@@ -1,7 +1,7 @@
 package ee.taltech.EITS_auditor_back.controller;
 
 import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M8DTO;
+import ee.taltech.EITS_auditor_back.dto.response.Sys21M3DTO;
 import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
 import ee.taltech.EITS_auditor_back.service.CheckService;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +29,8 @@ public class CheckController {
         return checkService.getSecureAuthenticationOfUsers();
     }
 
-    @GetMapping("/SYS21M8")
-    public Sys21M8DTO checkBootUpSecurity() throws IOException {
-        return checkService.getBootUpSecurity();
+    @GetMapping("/SYS21M3")
+    public Sys21M3DTO automaticUpdating() {
+        return checkService.getAutomaticUpdating();
     }
 }
