@@ -37,6 +37,14 @@ public class CheckService {
         });
     }
 
+    private List<RegistryDTO> getLikeRegistryValue(String commandEnd) throws IOException {
+        String response = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key LIKE " + commandEnd
+        );
+        return objectMapper.readValue(response, new TypeReference<>() {
+        });
+    }
+
     private boolean isWindows11() throws IOException {
         String response = OSQuery.executeOSQueryCommand(
                 "SELECT name FROM os_version"
@@ -121,16 +129,19 @@ public class CheckService {
         return new Sys223M5DTO(firewallEnabled.get(), antivirusEnabled.get(), firewallUpToDate.get(), antivirusUpToDate.get());
     }
 
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m13-funktsiooni-smartscreen-desaktiveerimine/">E-ITS SYS.2.2.3.M13</a>
+     */
     public Sys223M13DTO getSmartScreenStatus() throws IOException {
-        // Computer\HKEY_USERS\S-1-5-21-4007495885-270168382-343641858-1001\Software\Microsoft\Edge\SmartScreenEnabled
-        // Computer\HKEY_USERS\S-1-5-21-4007495885-270168382-343641858-1001\Software\Microsoft\Edge\SmartScreenPuaEnabled
         boolean smartscreenEdgeDisabled = isSmartscreenEdgeDisabled();
         boolean smartScreenPuaDisabled = isSmartscreenPuaDisabled();
         return new Sys223M13DTO(smartscreenEdgeDisabled, smartScreenPuaDisabled);
     }
 
     private boolean isSmartscreenEdgeDisabled() throws IOException {
-        List<RegistryDTO> smartScreen = getRegistryValue("'HKEY_USERS\\S-1-5-21-4007495885-270168382-343641858-1001\\Software\\Microsoft\\Edge\\SmartScreenEnabled'");
+        List<RegistryDTO> smartScreen = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Edge\\SmartScreenEnabled'");
         if (smartScreen.isEmpty()) {
             return false;
         }
@@ -138,7 +149,8 @@ public class CheckService {
     }
 
     private boolean isSmartscreenPuaDisabled() throws IOException {
-        List<RegistryDTO> smartScreen = getRegistryValue("'HKEY_USERS\\S-1-5-21-4007495885-270168382-343641858-1001\\Software\\Microsoft\\Edge\\SmartScreenPuaEnabled'");
+        List<RegistryDTO> smartScreen = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Edge\\SmartScreenPuaEnabled'");
         if (smartScreen.isEmpty()) {
             return false;
         }
@@ -272,6 +284,4 @@ public class CheckService {
 
         return new Sys21M1DTO(screenSaverIsEnabled, screenSaverPasswordProtected, false, false, false);
     }
-
-
 }
