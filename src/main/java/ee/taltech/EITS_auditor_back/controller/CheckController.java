@@ -1,9 +1,6 @@
 package ee.taltech.EITS_auditor_back.controller;
 
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M3DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M6DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
+import ee.taltech.EITS_auditor_back.dto.response.*;
 import ee.taltech.EITS_auditor_back.service.CheckService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,5 +37,10 @@ public class CheckController {
     @GetMapping("/SYS223M5")
     public Sys223M5DTO checkWindowsDefenderStatus() throws IOException {
         return checkService.getWindowsDefenderStatus();
+    }
+
+    @GetMapping("/SYS223M13")
+    public Sys223M13DTO checkSmartScreenStatus() throws IOException {
+        return checkService.getSmartScreenStatus();
     }
 }
