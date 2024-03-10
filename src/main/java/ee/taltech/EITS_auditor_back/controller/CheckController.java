@@ -45,7 +45,7 @@ public class CheckController {
     }
 
     @GetMapping("/SYS223M14")
-    public Sys223M14 checkCortanaStatus() throws IOException {
+    public Sys223M14DTO checkCortanaStatus() throws IOException {
         return checkService.getCortanaStatus();
     }
 }

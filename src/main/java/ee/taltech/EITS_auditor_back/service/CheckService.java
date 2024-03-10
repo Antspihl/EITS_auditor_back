@@ -143,9 +143,9 @@ public class CheckService {
     * Corresponds to
     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
      */
-    public Sys223M14 getCortanaStatus() throws IOException {
+    public Sys223M14DTO getCortanaStatus() throws IOException {
         boolean cortanaDisabled = isCortanaDisabled();
-        return new Sys223M14(cortanaDisabled);
+        return new Sys223M14DTO(cortanaDisabled);
     }
 
     public boolean isCortanaDisabled() throws IOException {
