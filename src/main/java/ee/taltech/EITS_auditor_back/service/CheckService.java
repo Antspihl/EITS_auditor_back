@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ee.taltech.EITS_auditor_back.dto.osquery.AuthDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.RegistryDTO;
 import ee.taltech.EITS_auditor_back.dto.osquery.SecurityDTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M1DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M3DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys21M6DTO;
-import ee.taltech.EITS_auditor_back.dto.response.Sys223M5DTO;
+import ee.taltech.EITS_auditor_back.dto.response.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +32,14 @@ public class CheckService {
     private List<RegistryDTO> getRegistryValue(String commandEnd) throws IOException {
         String response = OSQuery.executeOSQueryCommand(
                 "SELECT name, data FROM registry WHERE key = " + commandEnd
+        );
+        return objectMapper.readValue(response, new TypeReference<>() {
+        });
+    }
+
+    private List<RegistryDTO> getLikeRegistryValue(String commandEnd) throws IOException {
+        String response = OSQuery.executeOSQueryCommand(
+                "SELECT name, data FROM registry WHERE key LIKE " + commandEnd
         );
         return objectMapper.readValue(response, new TypeReference<>() {
         });
@@ -124,6 +129,49 @@ public class CheckService {
         return new Sys223M5DTO(firewallEnabled.get(), antivirusEnabled.get(), firewallUpToDate.get(), antivirusUpToDate.get());
     }
 
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m13-funktsiooni-smartscreen-desaktiveerimine/">E-ITS SYS.2.2.3.M13</a>
+     */
+    public Sys223M13DTO getSmartScreenStatus() throws IOException {
+        boolean smartscreenEdgeDisabled = isSmartscreenEdgeDisabled();
+        boolean smartScreenPuaDisabled = isSmartscreenPuaDisabled();
+        return new Sys223M13DTO(smartscreenEdgeDisabled, smartScreenPuaDisabled);
+    }
+
+    /**
+    * Corresponds to
+    * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
+     */
+    public Sys223M14DTO getCortanaStatus() throws IOException {
+        boolean cortanaDisabled = isCortanaDisabled();
+        return new Sys223M14DTO(cortanaDisabled);
+    }
+
+    public boolean isCortanaDisabled() throws IOException {
+        List<RegistryDTO> cortana = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Windows\\CurrentVersion\\Cortana' AND name == 'IsAvailable'");
+        return cortana.get(0).data().equalsIgnoreCase("0");
+    }
+
+    private boolean isSmartscreenEdgeDisabled() throws IOException {
+        List<RegistryDTO> smartScreen = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Edge\\SmartScreenEnabled'");
+        if (smartScreen.isEmpty()) {
+            return false;
+        }
+        return smartScreen.get(0).data().equalsIgnoreCase("0");
+    }
+
+    private boolean isSmartscreenPuaDisabled() throws IOException {
+        List<RegistryDTO> smartScreen = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Edge\\SmartScreenPuaEnabled'");
+        if (smartScreen.isEmpty()) {
+            return false;
+        }
+        return smartScreen.get(0).data().equalsIgnoreCase("0");
+    }
+
     private boolean areAutomaticUpdatesEnabled() {
         String windowsUpdateKeyPath = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update";
         String groupPolicyValueName = "UseWUServer";
@@ -208,7 +256,9 @@ public class CheckService {
 
     private boolean areBaseObjectsAudited() throws IOException {
         List<RegistryDTO> audit = getRegistryValue("'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Lsa' AND name == 'auditbaseobjects'");
-
+        if (audit.isEmpty()) {
+            return false;
+        }
         return audit.get(0).data().equalsIgnoreCase("1");
     }
 
@@ -216,6 +266,7 @@ public class CheckService {
         String autoLoginResponse = OSQuery.executeOSQueryCommand(
                 "SELECT name, data FROM registry WHERE key = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' AND name == 'AutoAdminLogin'"
         );
+
         return autoLoginResponse.equalsIgnoreCase("[]");
     }
 
@@ -225,6 +276,9 @@ public class CheckService {
         );
         List<AuthDTO> securityProducts = objectMapper.readValue(passwordChangingResponse, new TypeReference<>() {
         });
+        if (securityProducts.isEmpty()) {
+            return false;
+        }
         AuthDTO securityProduct = securityProducts.get(0);
         return securityProduct.logon_to_change_password() == 1;
     }
