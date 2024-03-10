@@ -139,6 +139,21 @@ public class CheckService {
         return new Sys223M13DTO(smartscreenEdgeDisabled, smartScreenPuaDisabled);
     }
 
+    /**
+    * Corresponds to
+    * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
+     */
+    public Sys223M14 getCortanaStatus() throws IOException {
+        boolean cortanaDisabled = isCortanaDisabled();
+        return new Sys223M14(cortanaDisabled);
+    }
+
+    public boolean isCortanaDisabled() throws IOException {
+        List<RegistryDTO> cortana = getLikeRegistryValue(
+                "'HKEY_USERS\\%\\Software\\Microsoft\\Windows\\CurrentVersion\\Cortana' AND name == 'IsAvailable'");
+        return cortana.get(0).data().equalsIgnoreCase("0");
+    }
+
     private boolean isSmartscreenEdgeDisabled() throws IOException {
         List<RegistryDTO> smartScreen = getLikeRegistryValue(
                 "'HKEY_USERS\\%\\Software\\Microsoft\\Edge\\SmartScreenEnabled'");

@@ -43,4 +43,9 @@ public class CheckController {
     public Sys223M13DTO checkSmartScreenStatus() throws IOException {
         return checkService.getSmartScreenStatus();
     }
+
+    @GetMapping("/SYS223M14")
+    public Sys223M14 checkCortanaStatus() throws IOException {
+        return checkService.getCortanaStatus();
+    }
 }
