@@ -12,10 +12,10 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
-
 
 
 @Service
@@ -139,7 +139,7 @@ public class CheckService {
      */
     public Sys223M9DTO getCentralAuthenticationStatus() {
         boolean isKerberosEnabled = isKerberosEnabled();
-        boolean isNTLMv2Enabled =  isNTLMv2Enabled();
+        boolean isNTLMv2Enabled = isNTLMv2Enabled();
         return new Sys223M9DTO(isKerberosEnabled || isNTLMv2Enabled);
     }
 
@@ -154,12 +154,56 @@ public class CheckService {
     }
 
     /**
-    * Corresponds to
-    * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
      */
     public Sys223M14DTO getCortanaStatus() throws IOException {
         boolean cortanaDisabled = isCortanaDisabled();
         return new Sys223M14DTO(cortanaDisabled);
+    }
+
+    public Sys223M19DTO getAllRDPStatus() throws IOException, InterruptedException {
+        boolean allRDPRulesAreAllowed = areRDPRulesAllowed();
+        return new Sys223M19DTO(allRDPRulesAreAllowed);
+    }
+
+    private boolean areRDPRulesAllowed() throws IOException, InterruptedException {
+        boolean result = false;
+        List<String> command = getRDPScript();
+
+        ProcessBuilder processBuilder = new ProcessBuilder(command);
+
+        Process process = processBuilder.start();
+        process.waitFor();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.contains("True")) {
+                result = true;
+            } else if (line.contains("False")) {
+                return false;
+            }
+        }
+
+        return result;
+    }
+
+    private static List<String> getRDPScript() {
+        String script = """
+                $firewall = Get-NetFirewallRule -DisplayGroup "Remote Desktop"
+                                
+                $firewall.enabled
+                """;
+
+        List<String> command = new ArrayList<>();
+        command.add("powershell.exe");
+        command.add("-NoProfile");
+        command.add("-ExecutionPolicy");
+        command.add("Bypass");
+        command.add("-Command");
+        command.add(script);
+        return command;
     }
 
     public static boolean isKerberosEnabled() {
