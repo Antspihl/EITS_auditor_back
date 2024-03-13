@@ -162,15 +162,39 @@ public class CheckService {
         return new Sys223M14DTO(cortanaDisabled);
     }
 
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m18-remote-assistance-kaugtoe-turvaline-rakendamine/">E-ITS SYS.2.2.3.M18</a>
+     */
+    public Sys223M18DTO getAllRemoteAssistanceStatus() throws IOException {
+        boolean remoteAssistanceEnabled = isRemoteAssistanceEnabled();
+        return new Sys223M18DTO(remoteAssistanceEnabled);
+    }
+
+    /**
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m19-kaughaldusvahendi-rdp-turvaline-rakendamine-kasutaja/">E-ITS SYS.2.2.3.M19</a>
+     */
     public Sys223M19DTO getAllRDPStatus() throws IOException {
         boolean allRDPRulesAreAllowed = areRDPRulesAllowed();
         return new Sys223M19DTO(allRDPRulesAreAllowed);
+    }
+
+    private boolean isRemoteAssistanceEnabled() throws IOException {
+        // Get-NetFirewallRule -DisplayGroup 'Remote Assistance' | Format-Table -Property Enabled
+        boolean result = false;
+        Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Assistance'", "|", "Format-Table", "-Property", "Enabled").start();
+        return areAllTrue(result, process);
     }
 
     private boolean areRDPRulesAllowed() throws IOException {
         // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Format-Table -Property Enabled
         boolean result = false;
         Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'", "|", "Format-Table", "-Property", "Enabled").start();
+        return areAllTrue(result, process);
+    }
+
+    private boolean areAllTrue(boolean result, Process process) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
         while ((line = reader.readLine()) != null) {
