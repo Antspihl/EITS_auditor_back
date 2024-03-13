@@ -48,4 +48,14 @@ public class CheckController {
     public Sys223M14DTO checkCortanaStatus() throws IOException {
         return checkService.getCortanaStatus();
     }
+
+    @GetMapping("/SYS223M9")
+    public Sys223M9DTO checkCentralAuthenticationStatus() {
+        return checkService.getCentralAuthenticationStatus();
+    }
+
+    @GetMapping("/SYS223M19")
+    public Sys223M19DTO checkAllRDPRulesAreAllowed() throws IOException, InterruptedException {
+        return checkService.getAllRDPStatus();
+    }
 }

@@ -9,10 +9,13 @@ import ee.taltech.EITS_auditor_back.dto.response.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
+
 
 @Service
 @Slf4j
@@ -20,6 +23,7 @@ public class CheckService {
 
     private final OSQueryService OSQuery;
     private final ObjectMapper objectMapper;
+    private static final String POWERSHELL = "powershell.exe";
 
     public CheckService(OSQueryService osQuery, ObjectMapper objectMapper) throws IOException {
         this.OSQuery = osQuery;
@@ -131,6 +135,16 @@ public class CheckService {
 
     /**
      * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m9-keskne-autentimine/">E-ITS SYS.2.2.3.M9</a>
+     */
+    public Sys223M9DTO getCentralAuthenticationStatus() {
+        boolean isKerberosEnabled = isKerberosEnabled();
+        boolean isNTLMv2Enabled = isNTLMv2Enabled();
+        return new Sys223M9DTO(isKerberosEnabled || isNTLMv2Enabled);
+    }
+
+    /**
+     * Corresponds to
      * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m13-funktsiooni-smartscreen-desaktiveerimine/">E-ITS SYS.2.2.3.M13</a>
      */
     public Sys223M13DTO getSmartScreenStatus() throws IOException {
@@ -140,12 +154,70 @@ public class CheckService {
     }
 
     /**
-    * Corresponds to
-    * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
+     * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m14-digitaalse-assistendi-cortana-desaktiveerimine-kasutaja/">E-ITS SYS.2.2.3.M14</a>
      */
     public Sys223M14DTO getCortanaStatus() throws IOException {
         boolean cortanaDisabled = isCortanaDisabled();
         return new Sys223M14DTO(cortanaDisabled);
+    }
+
+    public Sys223M19DTO getAllRDPStatus() throws IOException {
+        boolean allRDPRulesAreAllowed = areRDPRulesAllowed();
+        return new Sys223M19DTO(allRDPRulesAreAllowed);
+    }
+
+    private boolean areRDPRulesAllowed() throws IOException {
+        // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Format-Table -Property Enabled
+        boolean result = false;
+        Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'", "|", "Format-Table", "-Property", "Enabled").start();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.contains("True")) {
+                result = true;
+            } else if (line.contains("False")) {
+                return false;
+            }
+        }
+        return result;
+    }
+
+
+    public static boolean isKerberosEnabled() {
+        try {
+            // Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters" -Name "LogLevel"
+            Process process = new ProcessBuilder(POWERSHELL, "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Kerberos\\Parameters", "-Name", "LogLevel", "-ErrorAction", "SilentlyContinue").start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("LogLevel")) {
+                    int value = Integer.parseInt(line.split(":")[1].trim());
+                    return 0 <= value && value <= 1;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if Kerberos is enabled", e);
+        }
+        return false;
+    }
+
+    public static boolean isNTLMv2Enabled() {
+        try {
+            // Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LMCompatibilityLevel"
+            Process process = new ProcessBuilder(POWERSHELL, "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa", "-Name", "LMCompatibilityLevel", "-ErrorAction", "SilentlyContinue").start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("LMCompatibilityLevel")) {
+                    int value = Integer.parseInt(line.split(":")[1].trim());
+                    return 3 <= value && value <= 5;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if NTLMv2 is enabled", e);
+        }
+        return false;
     }
 
     public boolean isCortanaDisabled() throws IOException {
