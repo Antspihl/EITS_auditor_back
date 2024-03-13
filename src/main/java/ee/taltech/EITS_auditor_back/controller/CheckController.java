@@ -54,8 +54,13 @@ public class CheckController {
         return checkService.getCentralAuthenticationStatus();
     }
 
+    @GetMapping("/SYS223M18")
+    public Sys223M18DTO checkAllRemoteAssistanceRulesAreAllowed() throws IOException {
+        return checkService.getAllRemoteAssistanceStatus();
+    }
+
     @GetMapping("/SYS223M19")
-    public Sys223M19DTO checkAllRDPRulesAreAllowed() throws IOException, InterruptedException {
+    public Sys223M19DTO checkAllRDPRulesAreAllowed() throws IOException {
         return checkService.getAllRDPStatus();
     }
 }
