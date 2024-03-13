@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
@@ -24,6 +23,7 @@ public class CheckService {
 
     private final OSQueryService OSQuery;
     private final ObjectMapper objectMapper;
+    private static final String POWERSHELL = "powershell.exe";
 
     public CheckService(OSQueryService osQuery, ObjectMapper objectMapper) throws IOException {
         this.OSQuery = osQuery;
@@ -162,20 +162,15 @@ public class CheckService {
         return new Sys223M14DTO(cortanaDisabled);
     }
 
-    public Sys223M19DTO getAllRDPStatus() throws IOException, InterruptedException {
+    public Sys223M19DTO getAllRDPStatus() throws IOException {
         boolean allRDPRulesAreAllowed = areRDPRulesAllowed();
         return new Sys223M19DTO(allRDPRulesAreAllowed);
     }
 
-    private boolean areRDPRulesAllowed() throws IOException, InterruptedException {
+    private boolean areRDPRulesAllowed() throws IOException {
+        // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Format-Table -Property Enabled
         boolean result = false;
-        List<String> command = getRDPScript();
-
-        ProcessBuilder processBuilder = new ProcessBuilder(command);
-
-        Process process = processBuilder.start();
-        process.waitFor();
-
+        Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'", "|", "Format-Table", "-Property", "Enabled").start();
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
         while ((line = reader.readLine()) != null) {
@@ -185,30 +180,14 @@ public class CheckService {
                 return false;
             }
         }
-
         return result;
     }
 
-    private static List<String> getRDPScript() {
-        String script = """
-                $firewall = Get-NetFirewallRule -DisplayGroup "Remote Desktop"
-                                
-                $firewall.enabled
-                """;
-
-        List<String> command = new ArrayList<>();
-        command.add("powershell.exe");
-        command.add("-NoProfile");
-        command.add("-ExecutionPolicy");
-        command.add("Bypass");
-        command.add("-Command");
-        command.add(script);
-        return command;
-    }
 
     public static boolean isKerberosEnabled() {
         try {
-            Process process = new ProcessBuilder("powershell.exe", "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Kerberos\\Parameters", "-Name", "LogLevel", "-ErrorAction", "SilentlyContinue").start();
+            // Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters" -Name "LogLevel"
+            Process process = new ProcessBuilder(POWERSHELL, "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Kerberos\\Parameters", "-Name", "LogLevel", "-ErrorAction", "SilentlyContinue").start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
@@ -225,7 +204,8 @@ public class CheckService {
 
     public static boolean isNTLMv2Enabled() {
         try {
-            Process process = new ProcessBuilder("powershell.exe", "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa", "-Name", "LMCompatibilityLevel", "-ErrorAction", "SilentlyContinue").start();
+            // Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LMCompatibilityLevel"
+            Process process = new ProcessBuilder(POWERSHELL, "Get-ItemProperty", "-Path", "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa", "-Name", "LMCompatibilityLevel", "-ErrorAction", "SilentlyContinue").start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
