@@ -170,14 +170,14 @@ public class CheckService {
      */
     public Sys223M18DTO getAllRemoteAssistanceStatus() throws IOException {
         // Get-NetFirewallRule -DisplayGroup 'Remote Assistance' | Where-Object { $_.Direction -eq 'Inbound' } | Format-Table -Property Name, Enabled
-        boolean RemoteAssistanceDCOMInTCPNoScopeActive = false;
-        boolean RemoteAssistanceRAServerInTCPNoScopeActive = false;
-        boolean RemoteAssistancePnrpSvcUDPInEdgeScope = false;
-        boolean RemoteAssistancePnrpSvcUDPInEdgeScopeActive = false;
-        boolean RemoteAssistanceSSDPSrvInUDPActive = false;
-        boolean RemoteAssistanceInTCPEdgeScope = false;
-        boolean RemoteAssistanceSSDPSrvInTCPActive = false;
-        boolean RemoteAssistanceInTCPEdgeScopeActive = false;
+        boolean remoteAssistanceDCOMInTCPNoScopeActive = false;
+        boolean remoteAssistanceRAServerInTCPNoScopeActive = false;
+        boolean remoteAssistancePnrpSvcUDPInEdgeScope = false;
+        boolean remoteAssistancePnrpSvcUDPInEdgeScopeActive = false;
+        boolean remoteAssistanceSSDPSrvInUDPActive = false;
+        boolean remoteAssistanceInTCPEdgeScope = false;
+        boolean remoteAssistanceSSDPSrvInTCPActive = false;
+        boolean remoteAssistanceInTCPEdgeScopeActive = false;
         Process process = new ProcessBuilder(POWERSHELL,
                 "Get-NetFirewallRule", "-DisplayGroup", "'Remote Assistance'",
                 "|", "Where-Object", "{", "$_.Direction", "-eq", "'Inbound'", "}",
@@ -187,30 +187,30 @@ public class CheckService {
         for (Map.Entry<String, String> entry : textBlockAsList.entrySet()) {
             String key = entry.getKey();
             if (key.contains("DCOM")) {
-                RemoteAssistanceDCOMInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistanceDCOMInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
             } else if (key.contains("RAServer")) {
-                RemoteAssistanceRAServerInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistanceRAServerInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
             } else if (key.contains("PnrpSvc-UDP-In-EdgeScope")) {
-                RemoteAssistancePnrpSvcUDPInEdgeScope = true;
-                RemoteAssistancePnrpSvcUDPInEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistancePnrpSvcUDPInEdgeScope = true;
+                remoteAssistancePnrpSvcUDPInEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
             } else if (key.contains("SSDPSrv-UDP-In-Active")) {
-                RemoteAssistanceSSDPSrvInUDPActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistanceSSDPSrvInUDPActive = entry.getValue().equalsIgnoreCase("True");
             } else if (key.contains("In-TCPEdgeScope")) {
-                RemoteAssistanceInTCPEdgeScope = true;
-                RemoteAssistanceInTCPEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistanceInTCPEdgeScope = true;
+                remoteAssistanceInTCPEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
             } else if (key.contains("SSDPSrv-TCP-In-Active")) {
-                RemoteAssistanceSSDPSrvInTCPActive = entry.getValue().equalsIgnoreCase("True");
+                remoteAssistanceSSDPSrvInTCPActive = entry.getValue().equalsIgnoreCase("True");
             }
         }
         return new Sys223M18DTO(allAreTrue,
-                RemoteAssistanceDCOMInTCPNoScopeActive,
-                RemoteAssistanceRAServerInTCPNoScopeActive,
-                RemoteAssistancePnrpSvcUDPInEdgeScope,
-                RemoteAssistancePnrpSvcUDPInEdgeScopeActive,
-                RemoteAssistanceSSDPSrvInUDPActive,
-                RemoteAssistanceInTCPEdgeScope,
-                RemoteAssistanceSSDPSrvInTCPActive,
-                RemoteAssistanceInTCPEdgeScopeActive);
+                remoteAssistanceDCOMInTCPNoScopeActive,
+                remoteAssistanceRAServerInTCPNoScopeActive,
+                remoteAssistancePnrpSvcUDPInEdgeScope,
+                remoteAssistancePnrpSvcUDPInEdgeScopeActive,
+                remoteAssistanceSSDPSrvInUDPActive,
+                remoteAssistanceInTCPEdgeScope,
+                remoteAssistanceSSDPSrvInTCPActive,
+                remoteAssistanceInTCPEdgeScopeActive);
 
     }
 
@@ -230,9 +230,9 @@ public class CheckService {
 
     private Sys223M19DTO getAllRDPRuleStatuses() throws IOException {
         // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Where-Object { $_.Direction -eq 'Inbound' } | Format-Table -Property Name, Enabled
-        boolean RemoteDesktopShadowInTCP = false;
-        boolean RemoteDesktopUserModeInTCP = false;
-        boolean RemoteDesktopUserModeInUDP = false;
+        boolean remoteDesktopShadowInTCP = false;
+        boolean remoteDesktopUserModeInTCP = false;
+        boolean remoteDesktopUserModeInUDP = false;
         Process process = new ProcessBuilder(POWERSHELL,
                 "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'",
                 "|", "Where-Object", "{", "$_.Direction", "-eq", "'Inbound'", "}",
@@ -240,14 +240,14 @@ public class CheckService {
         Map<String, String> textBlockAsList = getTextBlockAsList(process);
         for (Map.Entry<String, String> entry : textBlockAsList.entrySet()) {
             if (entry.getKey().contains("Shadow")) {
-                RemoteDesktopShadowInTCP = entry.getValue().equalsIgnoreCase("True");
+                remoteDesktopShadowInTCP = entry.getValue().equalsIgnoreCase("True");
             } else if (entry.getKey().contains("UserMode")) {
-                RemoteDesktopUserModeInTCP = entry.getValue().equalsIgnoreCase("True");
+                remoteDesktopUserModeInTCP = entry.getValue().equalsIgnoreCase("True");
             } else if (entry.getKey().contains("UserMode-In-UDP")) {
-                RemoteDesktopUserModeInUDP = entry.getValue().equalsIgnoreCase("True");
+                remoteDesktopUserModeInUDP = entry.getValue().equalsIgnoreCase("True");
             }
         }
-        return new Sys223M19DTO(false, RemoteDesktopShadowInTCP, RemoteDesktopUserModeInTCP, RemoteDesktopUserModeInUDP);
+        return new Sys223M19DTO(false, remoteDesktopShadowInTCP, remoteDesktopUserModeInTCP, remoteDesktopUserModeInUDP);
     }
 
     private static Map<String, String> getTextBlockAsList(Process process) throws IOException {
@@ -255,7 +255,7 @@ public class CheckService {
         String line;
         Map<String, String> result = new HashMap<>();
         while ((line = reader.readLine()) != null) {
-            if (line.contains("Name") || line.contains("----")) {
+            if (line.contains("Name") || line.contains("----") || line.isEmpty()) {
                 continue;
             }
             String[] split = line.split("\\s+");
