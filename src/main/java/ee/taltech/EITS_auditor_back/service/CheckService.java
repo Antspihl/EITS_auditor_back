@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
 
@@ -167,8 +169,49 @@ public class CheckService {
      * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m18-remote-assistance-kaugtoe-turvaline-rakendamine/">E-ITS SYS.2.2.3.M18</a>
      */
     public Sys223M18DTO getAllRemoteAssistanceStatus() throws IOException {
-        boolean remoteAssistanceEnabled = isRemoteAssistanceEnabled();
-        return new Sys223M18DTO(remoteAssistanceEnabled);
+        // Get-NetFirewallRule -DisplayGroup 'Remote Assistance' | Where-Object { $_.Direction -eq 'Inbound' } | Format-Table -Property Name, Enabled
+        boolean RemoteAssistanceDCOMInTCPNoScopeActive = false;
+        boolean RemoteAssistanceRAServerInTCPNoScopeActive = false;
+        boolean RemoteAssistancePnrpSvcUDPInEdgeScope = false;
+        boolean RemoteAssistancePnrpSvcUDPInEdgeScopeActive = false;
+        boolean RemoteAssistanceSSDPSrvInUDPActive = false;
+        boolean RemoteAssistanceInTCPEdgeScope = false;
+        boolean RemoteAssistanceSSDPSrvInTCPActive = false;
+        boolean RemoteAssistanceInTCPEdgeScopeActive = false;
+        Process process = new ProcessBuilder(POWERSHELL,
+                "Get-NetFirewallRule", "-DisplayGroup", "'Remote Assistance'",
+                "|", "Where-Object", "{", "$_.Direction", "-eq", "'Inbound'", "}",
+                "|", "Format-Table", "-Property", "Name,Enabled").start();
+        Map<String, String> textBlockAsList = getTextBlockAsList(process);
+        boolean allAreTrue = textBlockAsList.values().stream().allMatch(s -> s.equalsIgnoreCase("True"));
+        for (Map.Entry<String, String> entry : textBlockAsList.entrySet()) {
+            String key = entry.getKey();
+            if (key.contains("DCOM")) {
+                RemoteAssistanceDCOMInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
+            } else if (key.contains("RAServer")) {
+                RemoteAssistanceRAServerInTCPNoScopeActive = entry.getValue().equalsIgnoreCase("True");
+            } else if (key.contains("PnrpSvc-UDP-In-EdgeScope")) {
+                RemoteAssistancePnrpSvcUDPInEdgeScope = true;
+                RemoteAssistancePnrpSvcUDPInEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
+            } else if (key.contains("SSDPSrv-UDP-In-Active")) {
+                RemoteAssistanceSSDPSrvInUDPActive = entry.getValue().equalsIgnoreCase("True");
+            } else if (key.contains("In-TCPEdgeScope")) {
+                RemoteAssistanceInTCPEdgeScope = true;
+                RemoteAssistanceInTCPEdgeScopeActive = entry.getValue().equalsIgnoreCase("True");
+            } else if (key.contains("SSDPSrv-TCP-In-Active")) {
+                RemoteAssistanceSSDPSrvInTCPActive = entry.getValue().equalsIgnoreCase("True");
+            }
+        }
+        return new Sys223M18DTO(allAreTrue,
+                RemoteAssistanceDCOMInTCPNoScopeActive,
+                RemoteAssistanceRAServerInTCPNoScopeActive,
+                RemoteAssistancePnrpSvcUDPInEdgeScope,
+                RemoteAssistancePnrpSvcUDPInEdgeScopeActive,
+                RemoteAssistanceSSDPSrvInUDPActive,
+                RemoteAssistanceInTCPEdgeScope,
+                RemoteAssistanceSSDPSrvInTCPActive,
+                RemoteAssistanceInTCPEdgeScopeActive);
+
     }
 
     /**
@@ -176,37 +219,50 @@ public class CheckService {
      * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/33-standardmeetmed/sys223m19-kaughaldusvahendi-rdp-turvaline-rakendamine-kasutaja/">E-ITS SYS.2.2.3.M19</a>
      */
     public Sys223M19DTO getAllRDPStatus() throws IOException {
-        boolean allRDPRulesAreAllowed = areRDPRulesAllowed();
-        return new Sys223M19DTO(allRDPRulesAreAllowed);
+        Sys223M19DTO partialDTO = getAllRDPRuleStatuses();
+        boolean allRDPRulesAreAllowed = partialDTO.RemoteDesktopShadowInTCP() && partialDTO.RemoteDesktopUserModeInTCP() && partialDTO.RemoteDesktopUserModeInUDP();
+        return new Sys223M19DTO(
+                allRDPRulesAreAllowed,
+                partialDTO.RemoteDesktopShadowInTCP(),
+                partialDTO.RemoteDesktopUserModeInTCP(),
+                partialDTO.RemoteDesktopUserModeInUDP());
     }
 
-    private boolean isRemoteAssistanceEnabled() throws IOException {
-        // Get-NetFirewallRule -DisplayGroup 'Remote Assistance' | Format-Table -Property Enabled
-        boolean result = false;
-        Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Assistance'", "|", "Format-Table", "-Property", "Enabled").start();
-        return areAllTrue(result, process);
+    private Sys223M19DTO getAllRDPRuleStatuses() throws IOException {
+        // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Where-Object { $_.Direction -eq 'Inbound' } | Format-Table -Property Name, Enabled
+        boolean RemoteDesktopShadowInTCP = false;
+        boolean RemoteDesktopUserModeInTCP = false;
+        boolean RemoteDesktopUserModeInUDP = false;
+        Process process = new ProcessBuilder(POWERSHELL,
+                "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'",
+                "|", "Where-Object", "{", "$_.Direction", "-eq", "'Inbound'", "}",
+                "|", "Format-Table", "-Property", "Name, Enabled").start();
+        Map<String, String> textBlockAsList = getTextBlockAsList(process);
+        for (Map.Entry<String, String> entry : textBlockAsList.entrySet()) {
+            if (entry.getKey().contains("Shadow")) {
+                RemoteDesktopShadowInTCP = entry.getValue().equalsIgnoreCase("True");
+            } else if (entry.getKey().contains("UserMode")) {
+                RemoteDesktopUserModeInTCP = entry.getValue().equalsIgnoreCase("True");
+            } else if (entry.getKey().contains("UserMode-In-UDP")) {
+                RemoteDesktopUserModeInUDP = entry.getValue().equalsIgnoreCase("True");
+            }
+        }
+        return new Sys223M19DTO(false, RemoteDesktopShadowInTCP, RemoteDesktopUserModeInTCP, RemoteDesktopUserModeInUDP);
     }
 
-    private boolean areRDPRulesAllowed() throws IOException {
-        // Get-NetFirewallRule -DisplayGroup 'Remote Desktop' | Format-Table -Property Enabled
-        boolean result = false;
-        Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayGroup", "'Remote Desktop'", "|", "Format-Table", "-Property", "Enabled").start();
-        return areAllTrue(result, process);
-    }
-
-    private boolean areAllTrue(boolean result, Process process) throws IOException {
+    private static Map<String, String> getTextBlockAsList(Process process) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
+        Map<String, String> result = new HashMap<>();
         while ((line = reader.readLine()) != null) {
-            if (line.contains("True")) {
-                result = true;
-            } else if (line.contains("False")) {
-                return false;
+            if (line.contains("Name") || line.contains("----")) {
+                continue;
             }
+            String[] split = line.split("\\s+");
+            result.put(split[0], split[1]);
         }
         return result;
     }
-
 
     public static boolean isKerberosEnabled() {
         try {
