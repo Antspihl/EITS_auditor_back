@@ -18,6 +18,10 @@ public class CheckController {
 
     private final CheckService checkService;
 
+    @GetMapping()
+    public String hello() {
+        return "Hello";
+    }
 
     @GetMapping("/SYS21M1")
     public Sys21M1DTO checkSecureAuthenticationOfUsers() throws IOException {
