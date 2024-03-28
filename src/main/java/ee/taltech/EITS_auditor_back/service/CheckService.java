@@ -220,12 +220,12 @@ public class CheckService {
      */
     public Sys223M19DTO getAllRDPStatus() throws IOException {
         Sys223M19DTO partialDTO = getAllRDPRuleStatuses();
-        boolean allRDPRulesAreAllowed = partialDTO.RemoteDesktopShadowInTCP() && partialDTO.RemoteDesktopUserModeInTCP() && partialDTO.RemoteDesktopUserModeInUDP();
+        boolean allRDPRulesAreAllowed = partialDTO.remoteDesktopShadowInTCP() && partialDTO.remoteDesktopUserModeInTCP() && partialDTO.remoteDesktopUserModeInUDP();
         return new Sys223M19DTO(
                 allRDPRulesAreAllowed,
-                partialDTO.RemoteDesktopShadowInTCP(),
-                partialDTO.RemoteDesktopUserModeInTCP(),
-                partialDTO.RemoteDesktopUserModeInUDP());
+                partialDTO.remoteDesktopShadowInTCP(),
+                partialDTO.remoteDesktopUserModeInTCP(),
+                partialDTO.remoteDesktopUserModeInUDP());
     }
 
     private Sys223M19DTO getAllRDPRuleStatuses() throws IOException {
