@@ -320,6 +320,16 @@ public class CheckService {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.isEmpty()) {
+                    return false;
+                }
+            }
+            // Get-NetFirewallRule -DisplayName "DiagTrack*" | Where-Object { $_.Direction -eq 'Outbound' -and $_.Enabled -eq $true -and $_.Action -ne 'Allow' }
+            process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayName",
+                    "DiagTrack*", "|", "Where-Object", "{", "$_.Direction", "-eq", "'Outbound'", "-and",
+                    "$_.Enabled", "-eq", "$true", "-and", "$_.Action", "-ne", "'Allow'", "}").start();
+            reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            while ((line = reader.readLine()) != null) {
+                if (!line.isEmpty()) {
                     return true;
                 }
             }
