@@ -102,6 +102,15 @@ public class CheckService {
 
     /**
      * Corresponds to
+     * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m4-telemeetria-andmekaitseseaded/">E-ITS SYS.2.2.3.M4</a>
+     */
+    public Sys223M4DTO getTelemetrySending() {
+        boolean telemetryStatus = isTelemetryDisabled();
+        return new Sys223M4DTO(telemetryStatus);
+    }
+
+    /**
+     * Corresponds to
      * <a href="https://eits.ria.ee/et/versioon/2023/eits-poohidokumendid/etalonturbe-kataloog/sys-itsuesteemid/sys2-klientarvutid/sys22-windows-kliendid/sys223-windows-10-ja-windows-11/3-meetmed/32-poohimeetmed/sys223m5-windows-klientarvuti-kahjurvara-toorje/">E-ITS SYS.2.2.3.M5</a>
      **/
     public Sys223M5DTO getWindowsDefenderStatus() throws IOException {
@@ -278,6 +287,24 @@ public class CheckService {
             }
         } catch (Exception e) {
             log.debug("Error occurred while checking if Kerberos is enabled", e);
+        }
+        return false;
+    }
+
+    public boolean isTelemetryDisabled() {
+        // Get-ItemProperty -Path "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry"
+        try {
+            Process process = new ProcessBuilder(POWERSHELL, "Get-ItemProperty", "-Path", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "-Name", "AllowTelemetry", "-ErrorAction", "SilentlyContinue").start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("AllowTelemetry")) {
+                    int value = Integer.parseInt(line.split(":")[1].trim());
+                    return value == 0;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if telemetry is enabled", e);
         }
         return false;
     }
