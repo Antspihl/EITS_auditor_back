@@ -106,7 +106,8 @@ public class CheckService {
      */
     public Sys223M4DTO getTelemetrySending() {
         boolean telemetryStatus = isTelemetryDisabled();
-        return new Sys223M4DTO(telemetryStatus);
+        boolean telemetryStatusByFirewall = isTelemetryDisabledByFirewall();
+        return new Sys223M4DTO(telemetryStatus, telemetryStatusByFirewall);
     }
 
     /**
@@ -307,6 +308,26 @@ public class CheckService {
             log.debug("Error occurred while checking if telemetry is enabled", e);
         }
         return false;
+    }
+
+    private boolean isTelemetryDisabledByFirewall() {
+        //Get-NetFirewallRule -DisplayName "DiagTrack*" | Where-Object { $_.Direction -eq 'Outbound' -and $_.Enabled -eq $true -and $_.Action -eq 'Allow' }
+        try {
+            Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayName",
+                    "DiagTrack*", "|", "Where-Object", "{", "$_.Direction", "-eq", "'Outbound'", "-and",
+                    "$_.Enabled", "-eq", "$true", "-and", "$_.Action", "-eq", "'Allow'", "}").start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.isEmpty()) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error occurred while checking if telemetry is disabled by firewall", e);
+        }
+        return false;
+
     }
 
     public static boolean isNTLMv2Enabled() {
