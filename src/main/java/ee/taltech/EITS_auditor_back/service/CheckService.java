@@ -311,7 +311,7 @@ public class CheckService {
     }
 
     private boolean isTelemetryDisabledByFirewall() {
-        //Get-NetFirewallRule -DisplayName "DiagTrack*" | Where-Object { $_.Direction -eq 'Outbound' -and $_.Enabled -eq $true -and $_.Action -eq 'Allow' }
+        // Get-NetFirewallRule -DisplayName "DiagTrack*" | Where-Object { $_.Direction -eq 'Outbound' -and $_.Enabled -eq $true -and $_.Action -eq 'Allow' }
         try {
             Process process = new ProcessBuilder(POWERSHELL, "Get-NetFirewallRule", "-DisplayName",
                     "DiagTrack*", "|", "Where-Object", "{", "$_.Direction", "-eq", "'Outbound'", "-and",
