@@ -38,6 +38,11 @@ public class CheckController {
         return checkService.getAntiMalwareStatus();
     }
 
+    @GetMapping("/SYS223M4")
+    public Sys223M4DTO checkTelemetrySending() {
+        return checkService.getTelemetrySending();
+    }
+
     @GetMapping("/SYS223M5")
     public Sys223M5DTO checkWindowsDefenderStatus() throws IOException {
         return checkService.getWindowsDefenderStatus();
