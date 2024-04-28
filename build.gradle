@@ -1,11 +1,11 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.2.2'
+	id 'org.springframework.boot' version '3.2.5'
 	id 'io.spring.dependency-management' version '1.1.4'
+	id 'java'
 }
 
 group = 'ee.taltech'
-version = '0.0.1-SNAPSHOT'
+version = '1.0'
 
 java {
 	sourceCompatibility = '17'
@@ -23,8 +23,4 @@ dependencies {
 	implementation 'org.springframework.security:spring-security-core:6.2.3'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
-}
-
-tasks.named('test') {
-	useJUnitPlatform()
 }
