@@ -29,7 +29,7 @@ init/EITS_auditor_back-1.0
 java -jar "[path]" --server.port=[port]
 ```
 
-<p>5. To check if working this url should say "Hello"</p>
+<p>5. To check if it's working this url should say "Hello"</p>
 
 ```
 localhost:[port]/api
