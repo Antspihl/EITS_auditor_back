@@ -39,5 +39,5 @@ localhost:[port]/api
 
 Technologies used in the project:
 
-*   Spring Boot
-*   OSQuery
+*   <a href="https://spring.io/" target="_blank" rel="noreferrer"> <img src="https://www.vectorlogo.zone/logos/springio/springio-icon.svg" alt="Spring boot" width="20" height="20"/> </a>
+*   <a href="https://www.osquery.io" target="_blank" rel="noreferrer"> <img src="https://www.osquery.io/favicons/favicon.ico" alt="OSQuery" width="20" height="20"/> </a>
