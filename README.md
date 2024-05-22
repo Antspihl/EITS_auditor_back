@@ -1,6 +1,13 @@
-<h1 align="center" id="title">E-ITS auditor backend</h1>
+<p align="center"><img 
+src="https://socialify.git.ci/Antspihl/EITS_auditor_back/image?description=1&font=Bitter&language=1&name=1&pattern=Circuit%20Board&theme=Auto" 
+alt="project-image"></p>
 
-<p id="description">Backend for automatic audit of the implementation of E-ITS SYS measures in the environment of a family doctor's center</p>
+<h2>📝 Disclaimer:</h2>
+
+* Meant to be used with the <a href="https://github.com/Antspihl/EITS_auditor_front">EITS_auditor_front</a> project.
+* Communicates only in the local network.
+* Doesn't store any data or send it to any external server.
+* Because it communicates via HTTP at the moment, it's recommended to set rules in place to only allow communication between the front and back-end servers but it's not necessary.
 
 <h2>🛠️ Installation Steps:</h2>
 
@@ -22,8 +29,8 @@ init/EITS_auditor_back-1.0
 
 <p>4. Run the .jar with this command:</p>
 
-*   Replace [path] with the path to the .jar.
-*   Replace [port] with the desired port it should run on.
+* Replace [path] with the path to the .jar.
+* Replace [port] with the desired port it should run on.
 
 ```bash
 java -jar "[path]" --server.port=[port]
